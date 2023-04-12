@@ -18,11 +18,10 @@ class Database:
     def check_if_user_exists(self, user_id: int, raise_exception: bool = False):
         if self.user_collection.count_documents({"_id": user_id}) > 0:
             return True
+        if raise_exception:
+            raise ValueError(f"User {user_id} does not exist")
         else:
-            if raise_exception:
-                raise ValueError(f"User {user_id} does not exist")
-            else:
-                return False
+            return False
 
     def add_new_user(
         self,
@@ -83,10 +82,7 @@ class Database:
         self.check_if_user_exists(user_id, raise_exception=True)
         user_dict = self.user_collection.find_one({"_id": user_id})
 
-        if key not in user_dict:
-            return None
-
-        return user_dict[key]
+        return None if key not in user_dict else user_dict[key]
 
     def set_user_attribute(self, user_id: int, key: str, value: Any):
         self.check_if_user_exists(user_id, raise_exception=True)
