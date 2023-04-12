@@ -146,10 +146,17 @@ async def message_handle(update: Update, context: CallbackContext, message=None,
         chat_mode = db.get_user_attribute(user_id, "current_chat_mode")
 
         # new dialog timeout
-        if use_new_dialog_timeout:
-            if (datetime.now() - db.get_user_attribute(user_id, "last_interaction")).seconds > config.new_dialog_timeout and len(db.get_dialog_messages(user_id)) > 0:
-                db.start_new_dialog(user_id)
-                await update.message.reply_text(f"Starting new dialog due to timeout (<b>{openai_utils.CHAT_MODES[chat_mode]['name']}</b> mode) ✅", parse_mode=ParseMode.HTML)
+        if (
+            use_new_dialog_timeout
+            and (
+                datetime.now()
+                - db.get_user_attribute(user_id, "last_interaction")
+            ).seconds
+            > config.new_dialog_timeout
+            and len(db.get_dialog_messages(user_id)) > 0
+        ):
+            db.start_new_dialog(user_id)
+            await update.message.reply_text(f"Starting new dialog due to timeout (<b>{openai_utils.CHAT_MODES[chat_mode]['name']}</b> mode) ✅", parse_mode=ParseMode.HTML)
         db.set_user_attribute(user_id, "last_interaction", datetime.now())
 
         # in case of CancelledError
@@ -245,8 +252,6 @@ async def message_handle(update: Update, context: CallbackContext, message=None,
             await task
         except asyncio.CancelledError:
             await update.message.reply_text("✅ Canceled", parse_mode=ParseMode.HTML)
-        else:
-            pass
         finally:
             if user_id in user_tasks:
                 del user_tasks[user_id]
@@ -257,8 +262,10 @@ async def is_previous_message_not_answered_yet(update: Update, context: Callback
 
     user_id = update.message.from_user.id
     if user_semaphores[user_id].locked():
-        text = "⏳ Please <b>wait</b> for a reply to the previous message\n"
-        text += "Or you can /cancel it"
+        text = (
+            "⏳ Please <b>wait</b> for a reply to the previous message\n"
+            + "Or you can /cancel it"
+        )
         await update.message.reply_text(text, reply_to_message_id=update.message.id, parse_mode=ParseMode.HTML)
         return True
     else:
@@ -332,9 +339,15 @@ async def show_chat_modes_handle(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     db.set_user_attribute(user_id, "last_interaction", datetime.now())
 
-    keyboard = []
-    for chat_mode, chat_mode_dict in openai_utils.CHAT_MODES.items():
-        keyboard.append([InlineKeyboardButton(chat_mode_dict["name"], callback_data=f"set_chat_mode|{chat_mode}")])
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                chat_mode_dict["name"],
+                callback_data=f"set_chat_mode|{chat_mode}",
+            )
+        ]
+        for chat_mode, chat_mode_dict in openai_utils.CHAT_MODES.items()
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text("Select chat mode:", reply_markup=reply_markup)
@@ -371,7 +384,7 @@ def get_settings_menu(user_id: int):
     for model_key in config.models["available_text_models"]:
         title = config.models["info"][model_key]["name"]
         if model_key == current_model:
-            title = "✅ " + title
+            title = f"✅ {title}"
 
         buttons.append(
             InlineKeyboardButton(title, callback_data=f"set_settings|{model_key}")
